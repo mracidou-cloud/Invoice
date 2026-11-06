@@ -24,7 +24,7 @@
   .row{display:grid;grid-template-columns:2fr 1fr;gap:12px}
   @media (max-width:640px){.row{grid-template-columns:1fr}}
   label{display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:#374151}
-  input[type=text],input[type=date]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+  input[type=text],input[type=date],input[type=password]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
   input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
   .drop{border:2px dashed #c7cfdb;border-radius:12px;padding:26px 16px;text-align:center;background:#fafbfc;cursor:pointer;transition:.15s}
   .drop.over{border-color:var(--accent);background:var(--accent-soft)}
@@ -50,26 +50,91 @@
   .chk{display:flex;align-items:center;gap:8px;font-size:14px}
   .msg{font-size:13px;margin-top:10px}
   .msg.ok{color:var(--ok)} .msg.err{color:var(--err)}
+  .aigrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .aigrid .full{grid-column:1/-1}
+  @media (max-width:640px){.aigrid{grid-template-columns:1fr}}
+  select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+  .setup{max-width:560px}
+  .hero{text-align:center;margin:18px 0 22px}
+  .hero .logo{font-size:44px}
+  .hero h1{font-size:26px;margin:6px 0}
+  .note{font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.5}
+  .help{font-size:12.5px;color:var(--muted);margin-top:7px;line-height:1.5}
+  .keyrow{display:flex;gap:8px}.keyrow input{flex:1}
+  details summary{cursor:pointer;font-size:13px;color:var(--muted)}
+  button.big{width:100%;padding:14px;font-size:16px}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}
+  .tb-label{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+  .topbar h1{margin:2px 0 4px}
+  .tb-ai{font-size:13px;color:var(--muted)}
+  .tb-ai.ok{color:var(--ok)}
+  [hidden]{display:none!important}
   .count{font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Invoice</h1>
-  <p class="sub">Sube o toma fotos de tus recibos, revisa los datos extraídos y genera un PDF organizado.</p>
+<!-- ============ PÁGINA DE INICIO ============ -->
+<div class="wrap setup" id="viewSetup" hidden>
+  <div class="hero">
+    <div class="logo">🧾</div>
+    <h1>Bienvenido a Invoice</h1>
+    <p class="sub">Configura tu cuenta una sola vez. Después solo tomas fotos de tus recibos y generas el PDF.</p>
+  </div>
 
   <div class="card">
-    <h2>Tu negocio</h2>
-    <div class="row">
-      <div>
-        <label for="biz">Nombre del negocio</label>
-        <input id="biz" type="text" placeholder="Ej. Transportes García LLC">
+    <h2>1. Tu negocio</h2>
+    <label for="biz">Nombre del negocio</label>
+    <input id="biz" type="text" placeholder="Ej. Transportes García LLC">
+  </div>
+
+  <div class="card">
+    <h2>2. Tu inteligencia artificial</h2>
+    <p class="note">La IA lee los recibos, incluso los escritos a mano. Las IAs no permiten entrar con usuario y contraseña desde otras apps: se conectan con una <b>clave API</b>. Tu clave se guarda <b>solo en este dispositivo</b>.</p>
+    <label for="aiProv">Elige tu IA</label>
+    <select id="aiProv">
+      <option value="anthropic">Claude (Anthropic)</option>
+      <option value="openai">ChatGPT (OpenAI)</option>
+      <option value="gemini">Gemini (Google) — tiene nivel gratis</option>
+      <option value="custom">Otra (OpenRouter, Grok, DeepSeek…)</option>
+      <option value="none">Sin IA — lector gratis (solo texto impreso)</option>
+    </select>
+    <div id="fKey" style="margin-top:14px">
+      <label for="aiKey">Clave API</label>
+      <div class="keyrow">
+        <input id="aiKey" type="password" autocomplete="off">
+        <button id="btnShowKey" type="button" title="Mostrar u ocultar">👁</button>
       </div>
-      <div>
-        <label for="repDate">Fecha del reporte</label>
-        <input id="repDate" type="date">
-      </div>
+      <div id="aiHelp" class="help"></div>
     </div>
+    <details id="adv" style="margin-top:14px">
+      <summary>Opciones avanzadas</summary>
+      <div class="aigrid" style="margin-top:12px">
+        <div id="fModel" class="full">
+          <label for="aiModel">Modelo</label>
+          <input id="aiModel" type="text" autocomplete="off">
+        </div>
+        <div id="fUrl" class="full">
+          <label for="aiUrl">Dirección de la API (base URL)</label>
+          <input id="aiUrl" type="text" placeholder="https://openrouter.ai/api/v1" autocomplete="off">
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <button class="primary big" id="btnAiSave" type="button">Guardar y continuar →</button>
+  <p class="msg" id="aiSaveMsg" style="text-align:center"></p>
+  <p style="text-align:center;margin-top:18px"><button class="ghost" id="btnAiClear" type="button">Borrar mis datos de este dispositivo</button></p>
+</div>
+
+<!-- ============ APP ============ -->
+<div class="wrap" id="viewApp" hidden>
+  <div class="topbar">
+    <div>
+      <div class="tb-label">Invoice</div>
+      <h1 id="bizTitle">Mi negocio</h1>
+      <div class="tb-ai" id="aiActive"></div>
+    </div>
+    <button id="btnSettings" type="button" style="white-space:nowrap;flex-shrink:0">⚙️ Mi cuenta</button>
   </div>
 
   <div class="card">
@@ -86,14 +151,6 @@
     <input id="camInput" type="file" accept="image/*" capture="environment" hidden>
     <input id="fileInput" type="file" accept="image/*" multiple hidden>
     <p class="msg" id="aiMsg" style="display:none"></p>
-    <details style="margin-top:14px">
-      <summary style="cursor:pointer;font-size:13px;color:var(--muted)">⚙️ Modo preciso (opcional, con tu clave de Claude API)</summary>
-      <p style="font-size:13px;color:var(--muted);margin:10px 0">Sin clave, la app lee los recibos gratis en tu navegador (funciona mejor con fotos claras y derechas). Con una clave de <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> la lectura es mucho más precisa (cobra centavos por recibo). La clave se guarda solo en este navegador.</p>
-      <div class="row">
-        <div><input id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off"></div>
-        <div><button id="btnKey" type="button">Guardar clave</button></div>
-      </div>
-    </details>
   </div>
 
   <div class="card">
@@ -103,7 +160,11 @@
 
   <div class="card">
     <div class="footer">
-      <label class="chk"><input type="checkbox" id="incImgs" checked> Incluir fotos de los recibos en el PDF</label>
+      <div>
+        <label for="repDate">Fecha del reporte</label>
+        <input id="repDate" type="date" style="max-width:200px">
+      </div>
+      <label class="chk"><input type="checkbox" id="incImgs" checked> Incluir fotos de los recibos</label>
       <button class="primary" id="btnPdf" type="button">Generar PDF</button>
     </div>
     <p class="msg" id="pdfMsg"></p>
@@ -126,15 +187,84 @@
     const d = new Date();
     return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   };
-  $("#biz").value = store.get("rs_biz") || "";
-  $("#biz").addEventListener("input", e => store.set("rs_biz", e.target.value));
   $("#repDate").value = today();
 
-  // ---------- API key (optional) ----------
-  $("#apiKey").value = store.get("rs_key") || "";
-  $("#btnKey").onclick = () => {
-    store.set("rs_key", $("#apiKey").value.trim());
-    showAiMsg($("#apiKey").value.trim() ? "Clave guardada. Los próximos recibos se leerán en modo preciso." : "Clave borrada. Se usará el lector gratis.", "ok");
+  // ---------- AI provider settings ----------
+  const PROVIDERS = {
+    none:{ name:"Lector gratis" },
+    anthropic:{ name:"Claude", model:"claude-sonnet-5-5", ph:"sk-ant-...", help:'¿No tienes clave? Entra a <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> → crea tu cuenta → <b>API Keys</b> → <b>Create Key</b>. Necesitas agregar créditos en <b>Billing</b>.' },
+    openai:{ name:"ChatGPT", model:"gpt-5.6-sol", ph:"sk-...", help:'¿No tienes clave? Entra a <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a> → <b>Create new secret key</b>. Tu suscripción de ChatGPT Plus no incluye la API; se agregan créditos aparte.' },
+    gemini:{ name:"Gemini", model:"gemini-flash-latest", ph:"AIza...", help:'¿No tienes clave? Entra a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> con tu cuenta de Google → <b>Create API key</b>. Tiene un nivel gratis.' },
+    custom:{ name:"IA personalizada", model:"", ph:"Tu clave", help:'Cualquier servicio compatible con la API de OpenAI. Pon la dirección y el modelo en <b>Opciones avanzadas</b> (ej. OpenRouter: <code>https://openrouter.ai/api/v1</code>). El modelo debe poder leer imágenes.' }
+  };
+  function loadCfg(){
+    let c = {}; try{ c = JSON.parse(store.get("rs_ai") || "{}"); }catch(e){}
+    c.prov = c.prov || "anthropic"; c.keys = c.keys || {}; c.models = c.models || {}; c.url = c.url || "";
+    return c;
+  }
+  let cfg = loadCfg();
+  function fillAiForm(){
+    const p = $("#aiProv").value, P = PROVIDERS[p];
+    const on = p !== "none";
+    $("#fKey").style.display = on ? "" : "none";
+    $("#adv").style.display = on ? "" : "none";
+    $("#fUrl").style.display = p === "custom" ? "" : "none";
+    if(p === "custom") $("#adv").open = true;
+    if(on){
+      $("#aiModel").value = cfg.models[p] || P.model;
+      $("#aiModel").placeholder = P.model || "nombre-del-modelo";
+      $("#aiKey").value = cfg.keys[p] || "";
+      $("#aiKey").placeholder = P.ph;
+      $("#aiHelp").innerHTML = P.help;
+      $("#aiUrl").value = cfg.url;
+    }
+    $("#aiSaveMsg").textContent = "";
+  }
+  function showActive(){
+    const p = cfg.prov, ok = p !== "none" && cfg.keys[p];
+    const el = $("#aiActive");
+    el.className = "tb-ai " + (ok ? "ok" : "");
+    el.textContent = ok ? `✓ Leyendo con ${PROVIDERS[p].name}` : "Lector gratis (solo texto impreso)";
+    $("#bizTitle").textContent = store.get("rs_biz") || "Mi negocio";
+  }
+  function showView(v){
+    $("#viewSetup").hidden = v !== "setup";
+    $("#viewApp").hidden = v !== "app";
+    window.scrollTo(0,0);
+    if(v === "setup"){
+      cfg = loadCfg();
+      $("#biz").value = store.get("rs_biz") || "";
+      $("#aiProv").value = cfg.prov;
+      fillAiForm();
+      $("#btnAiSave").textContent = store.get("rs_done") ? "Guardar cambios →" : "Guardar y continuar →";
+    } else showActive();
+  }
+  $("#aiProv").onchange = fillAiForm;
+  $("#btnShowKey").onclick = () => { const k=$("#aiKey"); k.type = k.type === "password" ? "text" : "password"; };
+  $("#btnSettings").onclick = () => showView("setup");
+  $("#btnAiSave").onclick = () => {
+    const m = $("#aiSaveMsg"), p = $("#aiProv").value, biz = $("#biz").value.trim();
+    const key = $("#aiKey").value.trim(), url = $("#aiUrl").value.trim().replace(/\/+$/,"");
+    if(!biz){ m.className="msg err"; m.textContent="Escribe el nombre de tu negocio."; $("#biz").focus(); return; }
+    if(p !== "none" && !key){ m.className="msg err"; m.textContent="Pega tu clave API o elige “Sin IA”."; $("#aiKey").focus(); return; }
+    if(p === "custom" && !url){ m.className="msg err"; m.textContent="Falta la dirección de la API en Opciones avanzadas."; $("#adv").open = true; return; }
+    if(p === "custom" && !$("#aiModel").value.trim()){ m.className="msg err"; m.textContent="Falta el modelo en Opciones avanzadas."; $("#adv").open = true; return; }
+    cfg.prov = p;
+    if(p !== "none"){
+      cfg.keys[p] = key;
+      cfg.models[p] = $("#aiModel").value.trim() || PROVIDERS[p].model;
+      if(p === "custom") cfg.url = url;
+    }
+    store.set("rs_ai", JSON.stringify(cfg));
+    store.set("rs_biz", biz);
+    store.set("rs_done", "1");
+    showView("app");
+  };
+  $("#btnAiClear").onclick = () => {
+    try{ ["rs_ai","rs_biz","rs_done","rs_key"].forEach(k => localStorage.removeItem(k)); }catch(e){}
+    cfg = loadCfg();
+    showView("setup");
+    $("#aiSaveMsg").className="msg ok"; $("#aiSaveMsg").textContent="Se borraron tus datos de este dispositivo.";
   };
   const aiDisabled = false;
 
@@ -185,28 +315,53 @@
   function blobToB64(blob){
     return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(blob); });
   }
-  async function claudeExtract(blob, key){
+  async function apiError(resp){
+    let detail = "";
+    try{ const j = await resp.json(); detail = (j.error && (j.error.message || j.error)) || j.message || ""; }catch(e){}
+    const e = new Error("api");
+    e.code = (resp.status === 401 || resp.status === 403) ? "bad_key" : resp.status === 429 ? "rate_limited" : resp.status === 404 ? "bad_model" : "api";
+    e.detail = typeof detail === "string" ? detail.slice(0,160) : "";
+    return e;
+  }
+  async function aiExtract(blob, prov, key, model){
     const b64 = await blobToB64(blob);
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method:"POST",
-      headers:{
-        "content-type":"application/json",
-        "x-api-key": key,
-        "anthropic-version":"2023-06-01",
-        "anthropic-dangerous-direct-browser-access":"true"
-      },
-      body: JSON.stringify({
-        model:"claude-haiku-5-5",
-        max_tokens:300,
-        messages:[{ role:"user", content:[
+    let resp;
+    if(prov === "anthropic"){
+      resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{ "content-type":"application/json", "x-api-key":key, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
+        body: JSON.stringify({ model, max_tokens:400, messages:[{ role:"user", content:[
           { type:"image", source:{ type:"base64", media_type:"image/jpeg", data:b64 } },
-          { type:"text", text: PROMPT }
-        ]}]
-      })
+          { type:"text", text: PROMPT } ]}] })
+      });
+      if(!resp.ok) throw await apiError(resp);
+      const j = await resp.json();
+      return (j.content || []).map(c => c.text || "").join("");
+    }
+    if(prov === "gemini"){
+      resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
+        method:"POST",
+        headers:{ "content-type":"application/json" },
+        body: JSON.stringify({ contents:[{ parts:[ { inline_data:{ mime_type:"image/jpeg", data:b64 } }, { text: PROMPT } ] }] })
+      });
+      if(!resp.ok) throw await apiError(resp);
+      const j = await resp.json();
+      const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
+      return parts.map(p => p.text || "").join("");
+    }
+    // OpenAI and OpenAI-compatible
+    const base = prov === "openai" ? "https://api.openai.com/v1" : cfg.url;
+    resp = await fetch(base + "/chat/completions", {
+      method:"POST",
+      headers:{ "content-type":"application/json", "authorization":"Bearer " + key },
+      body: JSON.stringify({ model, messages:[{ role:"user", content:[
+        { type:"text", text: PROMPT },
+        { type:"image_url", image_url:{ url:"data:image/jpeg;base64," + b64 } } ]}] })
     });
-    if(!resp.ok){ const e = new Error("api"); e.code = resp.status === 401 ? "bad_key" : resp.status === 429 ? "rate_limited" : "api"; throw e; }
+    if(!resp.ok) throw await apiError(resp);
     const j = await resp.json();
-    return (j.content || []).map(c => c.text || "").join("");
+    const c = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+    return Array.isArray(c) ? c.map(x => x.text || "").join("") : (c || "");
   }
 
   // ---------- inputs ----------
@@ -262,6 +417,7 @@
 
   // ---------- extraction with Claude ----------
   const PROMPT = `Eres un asistente que lee recibos de transporte/camiones (por ejemplo: lavado de trailers, reparaciones, básculas, combustible, inspecciones).
+Muchos recibos son formularios impresos llenados A MANO: lee con cuidado la escritura a mano (números y letras) junto a cada etiqueta impresa. Ignora lemas o descripciones del negocio emisor (por ejemplo "Buyers of waste paper").
 Lee la imagen del recibo y extrae:
 - trailer: el número de trailer (o unidad / remolque / "Trailer #", "Trailer No", "Unit #"). Solo el número o código, tal como aparece.
 - company: el nombre de la compañía cliente / transportista a la que pertenece el trailer (Customer, Carrier, Company, "Bill to"). Si no aparece cliente, usa el nombre de la empresa que emitió el recibo.
@@ -272,10 +428,11 @@ Responde SOLO con JSON, sin texto adicional, así:
 
   async function extract(rec, blob){
     rec._blob = blob;
-    const key = (store.get("rs_key") || "").trim();
+    const prov = cfg.prov, key = prov !== "none" ? (cfg.keys[prov] || "") : "";
+    const model = cfg.models[prov] || (PROVIDERS[prov] && PROVIDERS[prov].model) || "";
     try{
       if(key){
-        const data = parseJSON(await claudeExtract(blob, key));
+        const data = parseJSON(await aiExtract(blob, prov, key, model));
         if(!data){ const e = new Error("parse"); e.code="parse"; throw e; }
         rec.trailer = clean(data.trailer);
         rec.company = clean(data.company);
@@ -292,7 +449,10 @@ Responde SOLO con JSON, sin texto adicional, así:
     }catch(err){
       const code = err && err.code;
       rec.state = "err";
-      rec.note = code === "bad_key" ? "La clave de Claude API no es válida. Revísala en ⚙️ Modo preciso."
+      rec.note = code === "bad_key" ? "La clave de la IA no es válida. Revísala en la sección Inteligencia artificial."
+               : code === "bad_model" ? "La IA no reconoce el modelo “" + model + "”. Cámbialo en la sección Inteligencia artificial."
+               : code === "api" && err.detail ? "Error de la IA: " + err.detail
+               : !err.code && key ? "No se pudo conectar con la IA. Revisa tu internet, la clave o la dirección de la API."
                : code === "rate_limited" ? "Demasiadas solicitudes. Espera un momento y presiona “Leer de nuevo”."
                : "No se pudo leer el recibo. Escribe los datos a mano o presiona “Leer de nuevo”.";
     }
@@ -374,7 +534,7 @@ Responde SOLO con JSON, sin texto adicional, así:
     if(records.some(r => r.state==="loading")){ msg.className="msg err"; msg.textContent="Espera a que terminen de leerse los recibos."; return; }
     if(!window.jspdf){ msg.className="msg err"; msg.textContent="No se pudo cargar el generador de PDF. Recarga la página."; return; }
 
-    const biz = $("#biz").value.trim() || "Mi Negocio";
+    const biz = (store.get("rs_biz") || "").trim() || "Mi Negocio";
     const repDate = $("#repDate").value || today();
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit:"pt", format:"letter" });
@@ -448,6 +608,7 @@ Responde SOLO con JSON, sin texto adicional, así:
   };
 
   render();
+  showView(store.get("rs_done") ? "app" : "setup");
 })();
 </script>
 </body>

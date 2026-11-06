@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice · Escáner de Recibos</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#fff; --ink:#1b1f24; --muted:#6b7280; --line:#e3e6ea;
+    --accent:#1f4e8c; --accent-soft:#e8eef8; --ok:#16794c; --warn:#b45309; --err:#b42318;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+  .wrap{max-width:980px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+  .card h2{font-size:15px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent)}
+  .row{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+  @media (max-width:640px){.row{grid-template-columns:1fr}}
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:#374151}
+  input[type=text],input[type=date]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+  input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+  .drop{border:2px dashed #c7cfdb;border-radius:12px;padding:26px 16px;text-align:center;background:#fafbfc;cursor:pointer;transition:.15s}
+  .drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  .drop strong{display:block;font-size:16px;margin-bottom:4px}
+  .drop span{color:var(--muted);font-size:13px}
+  .btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  button{font:inherit;font-weight:600;border-radius:8px;padding:10px 16px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink)}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.primary:disabled{opacity:.5;cursor:not-allowed}
+  button.ghost{background:transparent;border-color:transparent;color:var(--err);padding:6px 8px}
+  .list{display:flex;flex-direction:column;gap:12px}
+  .rec{display:grid;grid-template-columns:90px 1fr auto;gap:14px;align-items:start;border:1px solid var(--line);border-radius:10px;padding:12px}
+  @media (max-width:640px){.rec{grid-template-columns:70px 1fr}.rec .del{grid-column:1/-1;justify-self:end}}
+  .thumb{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;background:#eef0f3;border:1px solid var(--line)}
+  .fields{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:10px}
+  @media (max-width:640px){.fields{grid-template-columns:1fr}}
+  .status{font-size:12px;margin-top:8px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .status.ok{color:var(--ok)} .status.warn{color:var(--warn)} .status.err{color:var(--err)}
+  .spin{width:12px;height:12px;border:2px solid #c7cfdb;border-top-color:var(--accent);border-radius:50%;animation:s 0.8s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .empty{color:var(--muted);text-align:center;padding:14px;font-size:14px}
+  .footer{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .chk{display:flex;align-items:center;gap:8px;font-size:14px}
+  .msg{font-size:13px;margin-top:10px}
+  .msg.ok{color:var(--ok)} .msg.err{color:var(--err)}
+  .count{font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Invoice</h1>
+  <p class="sub">Sube o toma fotos de tus recibos, revisa los datos extraídos y genera un PDF organizado.</p>
+
+  <div class="card">
+    <h2>Tu negocio</h2>
+    <div class="row">
+      <div>
+        <label for="biz">Nombre del negocio</label>
+        <input id="biz" type="text" placeholder="Ej. Transportes García LLC">
+      </div>
+      <div>
+        <label for="repDate">Fecha del reporte</label>
+        <input id="repDate" type="date">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Escanear recibos</h2>
+    <div class="drop" id="drop">
+      <strong>Arrastra aquí las fotos de los recibos</strong>
+      <span>JPG, PNG o foto desde el celular. Puedes subir varios a la vez.</span>
+      <div class="btns">
+        <button class="primary" id="btnCam" type="button">📷 Tomar foto</button>
+        <button id="btnFile" type="button">Subir imágenes</button>
+        <button id="btnManual" type="button">+ Agregar a mano</button>
+      </div>
+    </div>
+    <input id="camInput" type="file" accept="image/*" capture="environment" hidden>
+    <input id="fileInput" type="file" accept="image/*" multiple hidden>
+    <p class="msg" id="aiMsg" style="display:none"></p>
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;font-size:13px;color:var(--muted)">⚙️ Modo preciso (opcional, con tu clave de Claude API)</summary>
+      <p style="font-size:13px;color:var(--muted);margin:10px 0">Sin clave, la app lee los recibos gratis en tu navegador (funciona mejor con fotos claras y derechas). Con una clave de <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> la lectura es mucho más precisa (cobra centavos por recibo). La clave se guarda solo en este navegador.</p>
+      <div class="row">
+        <div><input id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off"></div>
+        <div><button id="btnKey" type="button">Guardar clave</button></div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>Recibos <span class="count" id="count"></span></h2>
+    <div class="list" id="list"></div>
+  </div>
+
+  <div class="card">
+    <div class="footer">
+      <label class="chk"><input type="checkbox" id="incImgs" checked> Incluir fotos de los recibos en el PDF</label>
+      <button class="primary" id="btnPdf" type="button">Generar PDF</button>
+    </div>
+    <p class="msg" id="pdfMsg"></p>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const records = []; // {id, img (dataURL), trailer, company, date, state, note}
+  let uid = 0;
+
+  // ---------- storage helpers (optional) ----------
+  const store = {
+    get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+    set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+  };
+
+  const today = () => {
+    const d = new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  };
+  $("#biz").value = store.get("rs_biz") || "";
+  $("#biz").addEventListener("input", e => store.set("rs_biz", e.target.value));
+  $("#repDate").value = today();
+
+  // ---------- API key (optional) ----------
+  $("#apiKey").value = store.get("rs_key") || "";
+  $("#btnKey").onclick = () => {
+    store.set("rs_key", $("#apiKey").value.trim());
+    showAiMsg($("#apiKey").value.trim() ? "Clave guardada. Los próximos recibos se leerán en modo preciso." : "Clave borrada. Se usará el lector gratis.", "ok");
+  };
+  const aiDisabled = false;
+
+  // ---------- free OCR (Tesseract) ----------
+  let workerPromise = null;
+  function getWorker(){
+    if(!workerPromise){
+      if(!window.Tesseract) return Promise.reject(new Error("no_tesseract"));
+      workerPromise = Tesseract.createWorker(["eng","spa"]);
+    }
+    return workerPromise;
+  }
+  let ocrQueue = Promise.resolve();
+  function ocr(blob){
+    const job = ocrQueue.then(async () => {
+      const w = await getWorker();
+      const { data } = await w.recognize(blob);
+      return data.text || "";
+    });
+    ocrQueue = job.catch(()=>{});
+    return job;
+  }
+
+  const MONTHS = {jan:1,ene:1,feb:2,mar:3,apr:4,abr:4,may:5,jun:6,jul:7,aug:8,ago:8,sep:9,set:9,oct:10,nov:11,dec:12,dic:12};
+  function findDate(t){
+    let m = t.match(/\b(20\d{2})[\/\-.](\d{1,2})[\/\-.](\d{1,2})\b/);
+    if(m) return `${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`;
+    m = t.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](20\d{2}|\d{2})\b/);
+    if(m){ const y = m[3].length===2 ? "20"+m[3] : m[3]; return `${y}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`; }
+    m = t.match(/\b([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2})\b/);
+    if(m && MONTHS[m[1].toLowerCase()]) return `${m[3]}-${String(MONTHS[m[1].toLowerCase()]).padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+    m = t.match(/\b(\d{1,2})\s+(?:de\s+)?([A-Za-z]{3})[a-z]*\.?\s+(?:de\s+)?(20\d{2})\b/);
+    if(m && MONTHS[m[2].toLowerCase()]) return `${m[3]}-${String(MONTHS[m[2].toLowerCase()]).padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+    return "";
+  }
+  function findTrailer(t){
+    const m = t.match(/(?:trailer|tr[aá]iler|trl|remolque|unit|unidad|caja)\s*(?:#|no\.?|n[uú]m(?:ero|ber)?\.?|number)?\s*[:#.\-]?\s*([A-Z0-9][A-Z0-9\-]{1,14})/i);
+    return m ? m[1].toUpperCase() : "";
+  }
+  function findCompany(t){
+    const m = t.match(/(?:customer|carrier|company|compa[nñ][ií]a|cliente|bill\s*to|sold\s*to|empresa)\s*(?:name)?\s*[:#\-]?\s*([^\n]{2,60})/i);
+    if(m && /[A-Za-z]{2}/.test(m[1])) return m[1].replace(/\s{2,}/g," ").trim();
+    const first = t.split("\n").map(s=>s.trim()).find(s => /[A-Za-z]{3}/.test(s) && s.length > 3);
+    return first || "";
+  }
+
+  // ---------- Claude API (optional) ----------
+  function blobToB64(blob){
+    return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(blob); });
+  }
+  async function claudeExtract(blob, key){
+    const b64 = await blobToB64(blob);
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{
+        "content-type":"application/json",
+        "x-api-key": key,
+        "anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"
+      },
+      body: JSON.stringify({
+        model:"claude-haiku-5-5",
+        max_tokens:300,
+        messages:[{ role:"user", content:[
+          { type:"image", source:{ type:"base64", media_type:"image/jpeg", data:b64 } },
+          { type:"text", text: PROMPT }
+        ]}]
+      })
+    });
+    if(!resp.ok){ const e = new Error("api"); e.code = resp.status === 401 ? "bad_key" : resp.status === 429 ? "rate_limited" : "api"; throw e; }
+    const j = await resp.json();
+    return (j.content || []).map(c => c.text || "").join("");
+  }
+
+  // ---------- inputs ----------
+  $("#btnCam").onclick = () => $("#camInput").click();
+  $("#btnFile").onclick = () => $("#fileInput").click();
+  $("#btnManual").onclick = () => { addRecord(null, true); };
+  $("#camInput").onchange = e => { handleFiles(e.target.files); e.target.value=""; };
+  $("#fileInput").onchange = e => { handleFiles(e.target.files); e.target.value=""; };
+  const drop = $("#drop");
+  drop.addEventListener("click", e => { if(e.target === drop || e.target.tagName==="STRONG" || e.target.tagName==="SPAN") $("#fileInput").click(); });
+  ["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => handleFiles(e.dataTransfer.files));
+
+  async function handleFiles(fileList){
+    const files = Array.from(fileList || []).filter(f => f.type.startsWith("image/"));
+    for(const f of files){
+      const { dataUrl, blob } = await shrink(f, 1600);
+      const rec = addRecord(dataUrl, false);
+      extract(rec, blob);
+    }
+  }
+
+  // Resize image to keep it light
+  function shrink(file, max){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        let { width:w, height:h } = img;
+        const r = Math.min(1, max / Math.max(w, h));
+        w = Math.round(w*r); h = Math.round(h*r);
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0,0,w,h);
+        ctx.drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        const dataUrl = c.toDataURL("image/jpeg", 0.85);
+        c.toBlob(blob => resolve({ dataUrl, blob }), "image/jpeg", 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("img")); };
+      img.src = url;
+    });
+  }
+
+  function addRecord(img, manual){
+    const rec = { id: ++uid, img, trailer:"", company:"", date:"", state: manual ? "manual" : "loading", note:"" };
+    records.push(rec);
+    render();
+    return rec;
+  }
+
+  // ---------- extraction with Claude ----------
+  const PROMPT = `Eres un asistente que lee recibos de transporte/camiones (por ejemplo: lavado de trailers, reparaciones, básculas, combustible, inspecciones).
+Lee la imagen del recibo y extrae:
+- trailer: el número de trailer (o unidad / remolque / "Trailer #", "Trailer No", "Unit #"). Solo el número o código, tal como aparece.
+- company: el nombre de la compañía cliente / transportista a la que pertenece el trailer (Customer, Carrier, Company, "Bill to"). Si no aparece cliente, usa el nombre de la empresa que emitió el recibo.
+- date: la fecha del recibo en formato AAAA-MM-DD.
+Si un dato no se puede leer, deja "" (cadena vacía). No inventes datos.
+Responde SOLO con JSON, sin texto adicional, así:
+{"trailer":"","company":"","date":""}`;
+
+  async function extract(rec, blob){
+    rec._blob = blob;
+    const key = (store.get("rs_key") || "").trim();
+    try{
+      if(key){
+        const data = parseJSON(await claudeExtract(blob, key));
+        if(!data){ const e = new Error("parse"); e.code="parse"; throw e; }
+        rec.trailer = clean(data.trailer);
+        rec.company = clean(data.company);
+        rec.date = normDate(clean(data.date));
+      } else {
+        const text = await ocr(blob);
+        rec.trailer = findTrailer(text);
+        rec.company = findCompany(text);
+        rec.date = findDate(text);
+      }
+      const missing = [!rec.trailer && "trailer", !rec.company && "compañía", !rec.date && "fecha"].filter(Boolean);
+      rec.state = missing.length ? "warn" : "ok";
+      rec.note = missing.length ? "No se pudo leer: " + missing.join(", ") + ". Revísalo." : "Datos extraídos. Revísalos antes de generar el PDF.";
+    }catch(err){
+      const code = err && err.code;
+      rec.state = "err";
+      rec.note = code === "bad_key" ? "La clave de Claude API no es válida. Revísala en ⚙️ Modo preciso."
+               : code === "rate_limited" ? "Demasiadas solicitudes. Espera un momento y presiona “Leer de nuevo”."
+               : "No se pudo leer el recibo. Escribe los datos a mano o presiona “Leer de nuevo”.";
+    }
+    render();
+  }
+
+  function parseJSON(t){
+    if(!t) return null;
+    const m = t.match(/\{[\s\S]*\}/);
+    if(!m) return null;
+    try{ return JSON.parse(m[0]); }catch(e){ return null; }
+  }
+  const clean = v => (v == null ? "" : String(v)).trim();
+  function normDate(s){
+    if(!s) return "";
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+    if(m){ let y = m[3].length===2 ? "20"+m[3] : m[3]; return `${y}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`; }
+    return "";
+  }
+  function showAiMsg(t, cls){ const el=$("#aiMsg"); el.textContent=t; el.className="msg "+cls; el.style.display="block"; }
+
+  // ---------- render ----------
+  function render(){
+    const list = $("#list");
+    $("#count").textContent = records.length ? `(${records.length})` : "";
+    if(!records.length){ list.innerHTML = '<div class="empty">Aún no hay recibos. Toma una foto o sube imágenes para empezar.</div>'; return; }
+    list.innerHTML = "";
+    records.forEach((r, i) => {
+      const el = document.createElement("div");
+      el.className = "rec";
+      const thumb = r.img ? `<img class="thumb" src="${r.img}" alt="Recibo ${i+1}">` : `<div class="thumb" style="display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:12px">Sin foto</div>`;
+      const loading = r.state === "loading";
+      const stCls = {ok:"ok",warn:"warn",err:"err"}[r.state] || "";
+      const status = loading ? `<div class="status"><span class="spin"></span>Leyendo recibo…</div>`
+                   : r.note ? `<div class="status ${stCls}">${esc(r.note)}${r.state==="err" && r._blob && !aiDisabled ? ' <button class="ghost" style="color:var(--accent)" data-retry="'+r.id+'">Leer de nuevo</button>' : ''}</div>` : "";
+      el.innerHTML = `
+        ${thumb}
+        <div>
+          <div class="fields">
+            <div><label>No. de Trailer</label><input type="text" data-k="trailer" value="${esc(r.trailer)}" ${loading?"disabled":""} placeholder="Ej. 53021"></div>
+            <div><label>Compañía</label><input type="text" data-k="company" value="${esc(r.company)}" ${loading?"disabled":""} placeholder="Nombre de la compañía"></div>
+            <div><label>Fecha</label><input type="date" data-k="date" value="${esc(r.date)}" ${loading?"disabled":""}></div>
+          </div>
+          ${status}
+        </div>
+        <button class="ghost del" title="Eliminar" data-del="${r.id}">Eliminar</button>`;
+      el.querySelectorAll("input[data-k]").forEach(inp => inp.addEventListener("input", e => { r[e.target.dataset.k] = e.target.value; }));
+      list.appendChild(el);
+    });
+    list.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+      const idx = records.findIndex(x => x.id == b.dataset.del);
+      if(idx > -1){ records.splice(idx,1); render(); }
+    });
+    list.querySelectorAll("[data-retry]").forEach(b => b.onclick = () => {
+      const r = records.find(x => x.id == b.dataset.retry);
+      if(r){ r.state="loading"; r.note=""; render(); extract(r, r._blob); }
+    });
+  }
+  function esc(s){ return String(s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+  // ---------- PDF ----------
+  function fmtDate(iso){
+    if(!iso) return "";
+    const [y,m,d] = iso.split("-");
+    return `${m}/${d}/${y}`;
+  }
+  function fmtLong(iso){
+    if(!iso) return "";
+    const [y,m,d] = iso.split("-").map(Number);
+    const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+    return `${d} de ${meses[m-1]} de ${y}`;
+  }
+
+  $("#btnPdf").onclick = async () => {
+    const msg = $("#pdfMsg");
+    msg.className = "msg"; msg.textContent = "";
+    if(!records.length){ msg.className="msg err"; msg.textContent="Agrega al menos un recibo."; return; }
+    if(records.some(r => r.state==="loading")){ msg.className="msg err"; msg.textContent="Espera a que terminen de leerse los recibos."; return; }
+    if(!window.jspdf){ msg.className="msg err"; msg.textContent="No se pudo cargar el generador de PDF. Recarga la página."; return; }
+
+    const biz = $("#biz").value.trim() || "Mi Negocio";
+    const repDate = $("#repDate").value || today();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:"pt", format:"letter" });
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+    const M = 48;
+    const accent = [31,78,140];
+
+    // Header band
+    doc.setFillColor(...accent); doc.rect(0,0,W,92,"F");
+    doc.setTextColor(255,255,255);
+    doc.setFont("helvetica","bold"); doc.setFontSize(22);
+    doc.text(biz, M, 44, { maxWidth: W - 2*M - 160 });
+    doc.setFont("helvetica","normal"); doc.setFontSize(11);
+    doc.text("Reporte de recibos", M, 66);
+    doc.setFontSize(10);
+    doc.text("Fecha del reporte", W - M, 40, { align:"right" });
+    doc.setFont("helvetica","bold"); doc.setFontSize(13);
+    doc.text(fmtLong(repDate), W - M, 58, { align:"right" });
+
+    // Summary
+    doc.setTextColor(27,31,36);
+    doc.setFont("helvetica","normal"); doc.setFontSize(11);
+    const companies = new Set(records.map(r => r.company.trim()).filter(Boolean));
+    doc.text(`Total de recibos: ${records.length}     Compañías: ${companies.size}`, M, 122);
+
+    // Sort by date then company
+    const rows = records.map((r, i) => ({ r, i }))
+      .sort((a,b) => (a.r.date||"9999").localeCompare(b.r.date||"9999") || a.r.company.localeCompare(b.r.company));
+
+    doc.autoTable({
+      startY: 136,
+      margin: { left:M, right:M },
+      head: [["#", "No. de Trailer", "Compañía", "Fecha"]],
+      body: rows.map((x, n) => [String(n+1), x.r.trailer || "—", x.r.company || "—", fmtDate(x.r.date) || "—"]),
+      styles: { font:"helvetica", fontSize:10.5, cellPadding:7, textColor:[27,31,36], lineColor:[227,230,234], lineWidth:0.5 },
+      headStyles: { fillColor: accent, textColor:255, fontStyle:"bold" },
+      alternateRowStyles: { fillColor:[246,248,251] },
+      columnStyles: { 0:{ cellWidth:30, halign:"center" }, 1:{ cellWidth:120, fontStyle:"bold" }, 3:{ cellWidth:90 } }
+    });
+
+    // Optional receipt photos
+    if($("#incImgs").checked){
+      rows.forEach((x, n) => {
+        if(!x.r.img) return;
+        doc.addPage();
+        doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(...accent);
+        doc.text(`Recibo ${n+1}`, M, M);
+        doc.setFont("helvetica","normal"); doc.setFontSize(10.5); doc.setTextColor(27,31,36);
+        doc.text(`Trailer: ${x.r.trailer || "—"}    Compañía: ${x.r.company || "—"}    Fecha: ${fmtDate(x.r.date) || "—"}`, M, M + 18, { maxWidth: W - 2*M });
+        const props = doc.getImageProperties(x.r.img);
+        const maxW = W - 2*M, maxH = H - M - (M + 36) - 30;
+        const s = Math.min(maxW / props.width, maxH / props.height);
+        const iw = props.width * s, ih = props.height * s;
+        doc.addImage(x.r.img, "JPEG", (W - iw)/2, M + 36, iw, ih);
+      });
+    }
+
+    // Footer on every page
+    const pages = doc.getNumberOfPages();
+    for(let p = 1; p <= pages; p++){
+      doc.setPage(p);
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(107,114,128);
+      doc.text(`${biz} · Generado el ${fmtLong(repDate)}`, M, H - 24);
+      doc.text(`Página ${p} de ${pages}`, W - M, H - 24, { align:"right" });
+    }
+
+    const safeBiz = biz.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"_") || "Recibos";
+    const filename = `Recibos_${safeBiz}_${repDate}.pdf`;
+    doc.save(filename);
+    msg.className="msg ok"; msg.textContent = `PDF listo: ${filename}`;
+  };
+
+  render();
+})();
+</script>
+</body>
+</html>
